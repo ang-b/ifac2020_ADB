@@ -84,7 +84,6 @@ for i = 1:N
     end
 end
 
-Ai = blkdiag(subss.A);
 B  = blkdiag(subss.B);
 C  = blkdiag(subss.C);
 G  = blkdiag(subss.G);
@@ -110,7 +109,6 @@ yT = y;
 
 % Initialized attack sequence
 xA = zeros(nI, nTot);
-xH = xA;
 yA = xA;
 
 x0 = .3*rand(nI*N,1) - 0.15;
@@ -124,10 +122,11 @@ u(:,:,1) = reshape(u0, mI, N, 1);
 %% attack initialization
 mu = zeros(gI, nTot);
 rho = mu;
-nA = 3;
+nA = 4;
 tA = 10;
 kA = find(t == tA);
 
+nplantA =  length(Kedges(Kedges(:,1) == nA, 1));
 % the system is unstable in open loop, therefore, to avoid numerical
 % problems, the attacker designs her own controller
 
@@ -189,28 +188,42 @@ for k = 1:nTot-1
         fprintf('Simulation time: % 6.2f/%.2f s\n', t(k+1), Tsim); 
     end
     % compute inputs
+    
+    mu(:,k) = -Ktilde * (xA(:,k) - rho(:,k));
+    mui(:,k) = mu(:,k) / nplantA;
+    muj(:,k) = mu(:,k) - mui(:,k);
+    
     for i = 1:N % for subsystems
+        
+        
         % how many controllers control plant i?
         ctrlrs_i = Kedges(Kedges(:,1) == i, 2);
         nctrli = length(ctrlrs_i);
         
         uol = zeros(mI, nctrli);
+        uoltilde = uol;
         for c = 1:nctrli 
             % ATTACK ON RECEIVED ESTIMATES GOES HERE
-            uol(:,c) = -LU(ctrlrs_i(c)).K{i} * (xd(:, i, k) - xref(:,k));  
-        end
-                
-        % ATTACK ON RECEIVED INPUTS GOES HERE
+            uol(:,c) = -LU(ctrlrs_i(c)).K{i} * (xd(:,i,k) - xref(:,k));
+            uoltilde(:,c) = uol(:,c);
+            
+            % ATTACK ON RECEIVED INPUTS GOES HERE
+            if i == nA && ctrlrs_i(c) ~= i
+                uoltilde(:,c) = uol(:,c) + muj(:,k) ./ (nplantA - 1);
+            end
+        end       
+        
         ucell{i,k} = uol;
+        utildec{i,k} = uoltilde;
+        
         u(:,i,k) = sum(uol(:,c));
+        utilde(:,i,k) = sum(uoltilde(:,c));
     end
     
-    utilde(:,:,k) = u(:,:,k);
+    %utilde(:,:,k) = u(:,:,k);    
+    utilde(:,nA,k) = utilde(:,nA,k) + mui(:,k);
     
-    mu(:,k) = -Ktilde * (xA(:,k) - rho(:,k));
-    utilde(:,nA,k) = utilde(:,nA,k) + mu(:,k);
-    
-    xA(:,k+1) = subss(nA).A*xA(:,k) + subss(nA).B*mu(:,k);
+    xA(:,k+1) = subss(nA).A*xA(:,k) + subss(nA).B*mui(:,k);
     yA(:,k) = subss(nA).C*xA(:,k);
     
     % System dynamics
@@ -223,7 +236,7 @@ for k = 1:nTot-1
     yT(:,:,k) = y(:,:,k);
     
     yT(:,nA,k) = y(:,nA,k) - yA(:,k);
-      
+  
     for i=1:N % for local units
         LU(i).UIO.estimate(u(:,i,k), yT(:,i,k));
         

@@ -3,6 +3,7 @@ figure(1)
 
 for i=1:N
     ax(i) = subplot(3,2,i);
+    grid on
     plot(t, reshape(yT(1,i,:), [1 nTot]), ...
          t, reshape(y(1,i,:), [1 nTot]), '--', ...
          t, xref(1,:) );
@@ -11,7 +12,7 @@ for i=1:N
             sprintf('$y_{%i}$', i), ...
             sprintf('$y_{%i, ref}$', i)} , ...
             'Interpreter', 'latex', 'Location', 'NorthWest');
-    linkaxes(ax,'x');
+    %linkaxes(ax,'x');
 end
 
 
@@ -21,31 +22,37 @@ end
 %     subplot(3,2,i);
 %     plot(t, reshape(yT(1,i,:) - xd(1,i,:), [1 nTot]));
 % end
-% 
-% %% coupled error
-% figure(3)
-% for i=1:N
-%     subplot(3,2,i);
-%     plot(t, reshape(yT(1,i,:) - xc(1,i,:), [1 nTot]));
-% end
 
 %% residuals
-figure(4)
+
+figure(3)
 for i=1:N
+    ebi = max(abs( squeeze(yT(1,i,t > 5)) - xref(1, t > 5)' ));
+    rbi = max(dcres(i,t > tA), [], 2);
     subplot(3,2,i);
-    plot(t, dcres(i,:).');
+    plot(t, dcres(i,:).', [t(1), t(end)], repmat(1.1*ebi, [1 2]), '--');
     ylabel(sprintf('$\\|r_{%i}\\| $', i), ...
             'Interpreter', 'latex', 'FontSize', 12);
-    ylim([0, 0.05]);
+    ylim([0, rbi*1.2]);
 end
 % 
 % %% attacker
-% figure(5)
+% figure(4)
 % plot(t, xA)
 % 
-% %% inputs
-% figure(6)
-% for i=1:N
-%     subplot(3,2,i);
-%     plot(t, reshape(u(:,i,:) - utilde(:,i,:), [mI nTot]));
-% end
+
+%% inputs
+figure(5)
+utildeol = reshape([utildec{nA,:}],[2, nTot-1]);
+uol = reshape([ucell{nA,:}],[2, nTot-1]);
+
+for i=1:N
+    subplot(3,2,i);
+    plot(t, reshape(u(:,i,:), [mI nTot]), ...
+         t, reshape(utilde(:,i,:), [mI nTot]), '--');
+    if i == nA
+        hold on
+        plot(t(1:end-1), utildeol.', '--', t(1:end-1), uol.')
+        hold off
+    end
+end
