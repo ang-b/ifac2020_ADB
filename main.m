@@ -3,19 +3,20 @@ clearvars, close all
 
 
 %% Simulation setup
-Tsim = 15;
-Tsamp = 0.01;
+Tsim = 20;
+Tsamp = 0.001;
 t = 0:Tsamp:Tsim;
 nTot= length(t);
+Tref = 8;
 
-xref = [0.1*sin(pi*t); zeros(1, nTot)];
+xref = [0.1*sin(2*pi/Tref*t); zeros(1, nTot)];
 % xref = zeros(2, nTot);
 
 %% System setup -- continuous time: discretize subsys by subsys!
 % Gravitational accelleration [m/s^2]
 g = 9.80665;
 % Length of inverted pendulum
-l = .1;
+l = .5;
 % Number of subsystem matrices
 N = 6;
 
@@ -47,11 +48,11 @@ kappa = [  27;
            53;
            33;
            42;
-           25]/10;
+           25]*5;
 % kappa = ceil(10*rand(E,1)) + 10;
 
 % build LSS and static feedback control
-Kpoles = [0.7 + 0.12i, 0.7 - 0.12i];
+Kpoles = [0.6 + 0.12i, 0.6 - 0.12i];
 
 for i = N:-1:1
     subss(i) = buildSub(i,g,l,e,m,a,kappa,Tsamp);
@@ -104,6 +105,7 @@ Kedges = [ 1, 1 ; ...
 x = zeros(nI, N, nTot);
 y = zeros(pI, N, nTot);
 u = zeros(mI, N, nTot);
+utilde = zeros(mI, N, nTot);
 yT = y;
 
 % Initialized attack sequence
@@ -111,7 +113,7 @@ xA = zeros(nI, nTot);
 xH = xA;
 yA = xA;
 
-x0 = 3*rand(nI*N,1) - 0.15;
+x0 = .3*rand(nI*N,1) - 0.15;
 % set the initial speeds to zero (2nd component of state)
 x0(repmat([false, true], 1, N)) = 0; 
 u0 = K*x0;
@@ -121,15 +123,23 @@ u(:,:,1) = reshape(u0, mI, N, 1);
 
 %% attack initialization
 mu = zeros(gI, nTot);
+rho = mu;
 nA = 3;
-tA = 5;
+tA = 10;
 kA = find(t == tA);
 
+% the system is unstable in open loop, therefore, to avoid numerical
+% problems, the attacker designs her own controller
+
+Ktildepoles = [0.7 + 0.2i, 0.7 - 0.2i];
+Ktilde = place(subss(nA).A, subss(nA).B, Ktildepoles);
+
 % this one destabilizes the system
-mu(:,kA:end) = 0.05*ones(1,gI*size(t(kA:end),1)).*(1-exp(-2*t(1:end-kA+1)));
+% rho(:,kA:end) = 2*ones(1,gI*size(t(kA:end),1)).*(1-exp(-2*t(1:end-kA+1)));
 
 % this one does not but induces bigger stationary oscillations
-% mu(:,kA:end) = .1*ones(gI,1).*sin(pi*t(kA:end)).*(1-exp(-2*t(1:end-kA+1)));
+rho(:,kA:end) = 1*ones(gI,1).*sin(4*pi/Tref*t(kA:end)).*(1-exp(-2*t(1:end-kA+1)));
+
 
 %% Observer initialization 
 
@@ -143,6 +153,7 @@ yEst = xd;
 %xd(:,:,1) = zeros(nI,N);
 %yEst(:,:,1) = reshape(C*x0,pI,N)
 
+% the observer dynamics is continuous, so place poles for CT
 obsvPoles = [-50 -40];
 
 for i = N:-1:1 % for local units
@@ -171,6 +182,7 @@ end
 
 % cell i contains all controls to subss i
 ucell = cell(N, nTot);
+utildec = ucell;
 
 for k = 1:nTot-1
     if mod(t(k+1), 1) == 0
@@ -193,33 +205,25 @@ for k = 1:nTot-1
         u(:,i,k) = sum(uol(:,c));
     end
     
-    % Beginning of attack
-    if k >= kA
-        %Attack dynamics
-        xA(:,k+1) = subss(nA).A*xA(:,k) + subss(nA).B*mu(:,k);
-        yA(:,k) = subss(nA).C*xA(:,k) ;
-        
-        % System dynamics
-        x(:,:,k+1) = reshape(...
-                       A * reshape(x(:,:,k), [nI*N 1]) + ...
-                       B * reshape(u(:,:,k), [mI*N 1]),  ... %finish reshape
-                           [nI N 1]);
-        x(:,nA,k+1) = x(:,nA,k) + subss(nA).B*mu(:,k);
-
-        y(:,:,k) = reshape(C*reshape(x(:,:,k), [nI*N 1]), [pI N 1]);
-        yT(:,:,k) = y(:,:,k);
-        yT(:,nA,k) = y(:,nA,k) - yA(:,k);
-
-    else
-        % System dynamics
-        x(:,:,k+1) = reshape( ...
-                       A * reshape(x(:,:,k), [nI*N 1]) + ...
-                       B * reshape(u(:,:,k), [mI*N 1]), ...
-                           [nI N 1]);
-        y(:,:,k) = reshape(C*reshape(x(:,:,k), [nI*N 1]), [pI N 1]);
-        yT(:,:,k) = y(:,:,k); 
-    end
+    utilde(:,:,k) = u(:,:,k);
     
+    mu(:,k) = -Ktilde * (xA(:,k) - rho(:,k));
+    utilde(:,nA,k) = utilde(:,nA,k) + mu(:,k);
+    
+    xA(:,k+1) = subss(nA).A*xA(:,k) + subss(nA).B*mu(:,k);
+    yA(:,k) = subss(nA).C*xA(:,k);
+    
+    % System dynamics
+    x(:,:,k+1) = reshape(...
+                   A * reshape(x(:,:,k), [nI*N 1]) + ...
+                   B * reshape(utilde(:,:,k), [mI*N 1]),  ... %finish reshape
+                       [nI N 1]);
+                   
+    y(:,:,k) = reshape(C*reshape(x(:,:,k), [nI*N 1]), [pI N 1]);
+    yT(:,:,k) = y(:,:,k);
+    
+    yT(:,nA,k) = y(:,nA,k) - yA(:,k);
+      
     for i=1:N % for local units
         LU(i).UIO.estimate(u(:,i,k), yT(:,i,k));
         

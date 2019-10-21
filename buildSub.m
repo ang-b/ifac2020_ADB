@@ -14,7 +14,7 @@ function [ subss ] = buildSub ( i , g , l , e , m , a , k , tSamp )
 %       - a     : height of interconnecting spring;
 %       - k(E)  : spring constant of interconnection index E;
 
-A = [   0       1 ; 
+A = [   0     1 ; 
         -g/l  0 ];
 
 I = eye(2);
@@ -22,7 +22,7 @@ I = eye(2);
 % A = [  0   1 ; 
 %       -2  -3 ];
 
-B = [ 0 ; 1/(m(i)*l^2) ];
+B = [ 0 ; -1/(m(i)*l^2) ];
 % B = [ 0;1 ];
 mI = size(B,2);
 
