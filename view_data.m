@@ -27,7 +27,7 @@ for i=1:length(f1_subss)
 %     linkaxes(ax,'x');
 end
 
-% print('-f1-', ['fig' filesep 'trajectories.eps'], '-depsc2');
+print('-f1', ['fig' filesep 'trajectories.eps'], '-depsc2');
 
 %% alarms
 track_bound = zeros(N, 1);
@@ -44,19 +44,21 @@ tD = t(kD);
 
 figure(2)
 set(2, 'defaultTextInterpreter', 'latex');
-set(2, 'Unit', 'inches', 'Position', [0 0 80 5]);
-for i=1:N
-    subplot(2,3,i);
-    plot(t, all(alarms(subss(i).Ni, :), 1), 'LineWidth', 1.5, 'Color', 'red');
+set(2, 'Unit', 'inches', 'Position', [0 0 10 4]);
+% for i=1:N
+%     subplot(2,3,i);
+    plot(t, all(alarms(subss(nA).Ni, :), 1), 'LineWidth', 1.5, 'Color', 'red');
     grid on
     ylim([-0.1 1.1]);
     set(gca, 'TickLabelInterpreter', 'latex', 'FontSize', 11); 
-    ylabel(sprintf('$\\mathcal P_%i$', i), ...
+    ylabel(sprintf('$\\mathcal P_%i$', nA), ...
             'Interpreter', 'latex', 'FontSize', 12);
     if i > 3
         xlabel('Time [s]', 'Interpreter', 'latex'); 
     end
-end
+% end
+
+print('-f2', ['fig' filesep 'alarms.eps'], '-depsc2');
 %% residuals 
 
 figure(3)
@@ -74,6 +76,8 @@ for i=1:N
         xlabel('Time [s]', 'Interpreter', 'latex'); 
     end
 end
+
+print('-f3', ['fig' filesep 'residuals.eps'], '-depsc2');
 
 %% inputs
 % figure(4)
