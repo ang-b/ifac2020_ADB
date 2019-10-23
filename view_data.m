@@ -1,7 +1,7 @@
 %% output
 figure(1)
 set(1, 'defaultTextInterpreter', 'latex');
-set(1, 'Unit', 'inches', 'Position', [0 0 10 7]);
+set(1, 'Unit', 'inches', 'Position', [0 0 6 4]);
 % we plot just subsystem 1 and attacked
 f1_subss = [1 nA];
 for i=1:length(f1_subss)
@@ -15,14 +15,14 @@ for i=1:length(f1_subss)
     plot(t, yT1_rs, t, y1_rs, t, xref(1,:), '--' );
     grid on
     set(gca, 'TickLabelInterpreter', 'latex', 'FontSize', 11); 
-    ylabel(sprintf('$\\mathcal P_%i$', f1_subss(i)), 'Interpreter', 'latex');
+    ylabel(sprintf('$\\mathcal S_%i$', f1_subss(i)), 'Interpreter', 'latex');
     if i > 1
         xlabel('Time [s]', 'Interpreter', 'latex'); 
     end
     ylim([lb - 0.5*range, ub + 0.5*range]);
-    legend({sprintf('$\\tilde y_{%i}$', f1_subss(i)), ...
-            sprintf('$y_{%i}$', f1_subss(i)), ...
-            sprintf('$y_{%i, ref}$', f1_subss(i))} , ...
+    legend({sprintf('$\\tilde \\theta_{%i}$', f1_subss(i)), ...
+            sprintf('$\\theta_{%i}$', f1_subss(i)), ...
+            sprintf('$\\theta_{%i, ref}$', f1_subss(i))} , ...
             'Interpreter', 'latex', 'Location', 'SouthWest', 'FontSize', 9);
 %     linkaxes(ax,'x');
 end
@@ -44,14 +44,20 @@ tD = t(kD);
 
 figure(2)
 set(2, 'defaultTextInterpreter', 'latex');
-set(2, 'Unit', 'inches', 'Position', [0 0 10 4]);
+set(2, 'Unit', 'inches', 'Position', [0 0 6 1.9]);
 % for i=1:N
 %     subplot(2,3,i);
     plot(t, all(alarms(subss(nA).Ni, :), 1), 'LineWidth', 1.5, 'Color', 'red');
     grid on
     ylim([-0.1 1.1]);
     set(gca, 'TickLabelInterpreter', 'latex', 'FontSize', 11); 
-    ylabel(sprintf('$\\mathcal P_%i$', nA), ...
+    yinterval = [0 1];
+    yticks = linspace(yinterval(1), yinterval(2), 2); 
+
+    ylim(yinterval + [-1, 1]*0.1);
+    set(gca, 'Ytick', yticks);
+    set(gca, 'Yticklabel', yticks);
+    ylabel(sprintf('$\\mathcal S_%i$', nA), ...
             'Interpreter', 'latex', 'FontSize', 12);
     if i > 3
         xlabel('Time [s]', 'Interpreter', 'latex'); 
@@ -63,7 +69,7 @@ print('-f2', ['fig' filesep 'alarms.eps'], '-depsc2');
 
 figure(3)
 set(3, 'defaultTextInterpreter', 'latex');
-set(3, 'Unit', 'inches', 'Position', [0 0 80 5]);
+set(3, 'Unit', 'inches', 'Position', [0 0 12 3.5]);
 for i=1:N
     rbi = max(dcres(i,t > tA), [], 2);
     subplot(2,3,i);
