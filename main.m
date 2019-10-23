@@ -3,7 +3,7 @@ clearvars, close all
 
 
 %% Simulation setup
-Tsim = 20;
+Tsim = 30;
 Tsamp = 0.001;
 t = 0:Tsamp:Tsim;
 nTot= length(t);
@@ -22,12 +22,13 @@ N = 6;
 
 % Edges in our LSS network
 e = [1, 2;
-     1, 4;
-     2, 3;
-     2, 5;
+     1, 3;
+     2, 4;
+     2, 6;
      3, 4;
-     4, 5;
-     4, 6];
+     3, 5;
+     4, 6;
+     5, 6];
 
  % Number of edges
 E = size(e,1);
@@ -48,7 +49,8 @@ kappa = [  27;
            53;
            33;
            42;
-           25]*5;
+           25;
+           38]*5;
 % kappa = ceil(10*rand(E,1)) + 10;
 
 % build LSS and static feedback control
@@ -93,8 +95,8 @@ Ebar = blkdiag(subss.Ebar);
 Kedges = [ 1, 1 ; ...
            2, 2 ; ...
            3, 3 ; ...
+           3, 4 ; ...
            4, 4 ; ...
-           4, 3 ; ...
            5, 5 ; ...
            6, 6];
 
@@ -120,11 +122,15 @@ x(:,:,1) = reshape(x0, nI, N, 1);
 u(:,:,1) = reshape(u0, mI, N, 1);
 
 %% attack initialization
-mu = zeros(gI, nTot);
+mu = zeros(mI, nTot);
+mui = mu;
+muj = mu;
 rho = mu;
-nA = 4;
+nA = 3;
 tA = 10;
 kA = find(t == tA);
+tA2 = 20;
+kA2 = find(t == tA2);
 
 nplantA =  length(Kedges(Kedges(:,1) == nA, 1));
 % the system is unstable in open loop, therefore, to avoid numerical
@@ -134,10 +140,10 @@ Ktildepoles = [0.7 + 0.2i, 0.7 - 0.2i];
 Ktilde = place(subss(nA).A, subss(nA).B, Ktildepoles);
 
 % this one destabilizes the system
-% rho(:,kA:end) = 2*ones(1,gI*size(t(kA:end),1)).*(1-exp(-2*t(1:end-kA+1)));
+% rho(:,kA:end) = 2*ones(1,mI*size(t(kA:end),1)).*(1-exp(-2*t(1:end-kA+1)));
 
 % this one does not but induces bigger stationary oscillations
-rho(:,kA:end) = 1*ones(gI,1).*sin(4*pi/Tref*t(kA:end)).*(1-exp(-2*t(1:end-kA+1)));
+rho(:,kA:kA2) = 1*ones(mI,1).*sin(4*pi/Tref*t(kA:kA2)).*(1-exp(-2*t(1:kA2-kA+1)));
 
 
 %% Observer initialization 
@@ -168,7 +174,6 @@ for i = N:-1:1 % for local units
         LU(i).K{ctrlrs_LU(c)} = Kcell{ctrlrs_LU(c)} / nplantsc;
     end
     
-    % design bank of UIOs
     LU(i).UIO = UIO(subss(i).A, subss(i).B, subss(i).C, subss(i).Aij);
     LU(i).UIO.assignFPoles(obsvPoles);
     LU(i).UIO.tSpan = Tsamp;
@@ -180,8 +185,8 @@ end
 %% Simulation
 
 % cell i contains all controls to subss i
-ucell = cell(N, nTot);
-utildec = ucell;
+uj = cell(N, nTot);
+utildej = uj;
 
 for k = 1:nTot-1
     if mod(t(k+1), 1) == 0
@@ -193,43 +198,60 @@ for k = 1:nTot-1
     mui(:,k) = mu(:,k) / nplantA;
     muj(:,k) = mu(:,k) - mui(:,k);
     
-    for i = 1:N % for subsystems
-        
-        
+    for i = 1:N % for subsystems  
         % how many controllers control plant i?
         ctrlrs_i = Kedges(Kedges(:,1) == i, 2);
         nctrli = length(ctrlrs_i);
         
-        uol = zeros(mI, nctrli);
+        uol = zeros(mI, nctrli - 1);
+        ulocal = zeros(mI, 1);
+        
         uoltilde = uol;
         for c = 1:nctrli 
-            % ATTACK ON RECEIVED ESTIMATES GOES HERE
-            uol(:,c) = -LU(ctrlrs_i(c)).K{i} * (xd(:,i,k) - xref(:,k));
-            uoltilde(:,c) = uol(:,c);
-            
+            if i == ctrlrs_i(c)
+                u(:,i,k) = -LU(i).K{i} * (xd(:,i,k) - xref(:,k));
+            else
+                % ATTACK ON RECEIVED ESTIMATES GOES HERE
+                % ctrlrs_i(c) receives xd(:,i,k) via communication network,
+                % therefore an attack on the exchanged data alters such
+                % estimate
+                
+                uol(:,c-1) = -LU(ctrlrs_i(c)).K{i} * (xd(:,i,k) - xref(:,k));
+                uoltilde(:,c-1) = uol(:,c-1);
+            end
+                        
             % ATTACK ON RECEIVED INPUTS GOES HERE
             if i == nA && ctrlrs_i(c) ~= i
-                uoltilde(:,c) = uol(:,c) + muj(:,k) ./ (nplantA - 1);
+                uoltilde(:,c-1) = uol(:,c-1) + muj(:,k) ./ (nplantA - 1);
             end
         end       
         
-        ucell{i,k} = uol;
-        utildec{i,k} = uoltilde;
-        
-        u(:,i,k) = sum(uol(:,c));
-        utilde(:,i,k) = sum(uoltilde(:,c));
+        uj{i,k} = uol;
+        utildej{i,k} = uoltilde;
     end
     
-    %utilde(:,:,k) = u(:,:,k);    
-    utilde(:,nA,k) = utilde(:,nA,k) + mui(:,k);
+    utilde(:,:,k) = u(:,:,k);    
+    utilde(:,nA,k) = u(:,nA,k) + mui(:,k);
     
-    xA(:,k+1) = subss(nA).A*xA(:,k) + subss(nA).B*mui(:,k);
+    ujk = sum(uj{i,k}, 2);
+    utildejk = sum(utildej{i,k}, 2);
+    
+    utildejk_stack = zeros(mI*N, 1);
+    for i=1:N
+         if isempty(utildej{i,k})
+             utildejk_stack((1:mI)+mI*(i-1)) = zeros(mI, 1);
+         else
+             utildejk_stack((1:mI)+mI*(i-1)) = utildej{i,k};
+         end
+    end
+    
+    xA(:,k+1) = subss(nA).A*xA(:,k) + subss(nA).B*mu(:,k);
     yA(:,k) = subss(nA).C*xA(:,k);
     
     % System dynamics
     x(:,:,k+1) = reshape(...
                    A * reshape(x(:,:,k), [nI*N 1]) + ...
-                   B * reshape(utilde(:,:,k), [mI*N 1]),  ... %finish reshape
+                   B * (reshape(utilde(:,:,k), [mI*N 1]) + utildejk_stack),  ... %finish reshape
                        [nI N 1]);
                    
     y(:,:,k) = reshape(C*reshape(x(:,:,k), [nI*N 1]), [pI N 1]);
@@ -238,12 +260,12 @@ for k = 1:nTot-1
     yT(:,nA,k) = y(:,nA,k) - yA(:,k);
   
     for i=1:N % for local units
-        LU(i).UIO.estimate(u(:,i,k), yT(:,i,k));
+        LU(i).UIO.estimate(u(:,i,k) + utildejk, yT(:,i,k));
         
         xd(:,i,k+1) = LU(i).UIO.xhat;
         
         xdj = reshape(xd(:,subss(i).Ni,k), [nI*length(subss(i).Ni) 1]);
-        LU(i).LUE.estimate(u(:,i,k), yT(:,i,k), xdj);
+        LU(i).LUE.estimate(u(:,i,k) + utildejk, yT(:,i,k), xdj);
         
         xc(:,i,k+1) = LU(i).LUE.xhat;
         

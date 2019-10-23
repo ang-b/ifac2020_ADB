@@ -1,58 +1,92 @@
 %% output
 figure(1)
-
-for i=1:N
-    ax(i) = subplot(3,2,i);
+set(1, 'defaultTextInterpreter', 'latex');
+set(1, 'Unit', 'inches', 'Position', [0 0 10 7]);
+% we plot just subsystem 1 and attacked
+f1_subss = [1 nA];
+for i=1:length(f1_subss)
+    yT1_rs = reshape(yT(1,f1_subss(i),:), [1 nTot]);
+    y1_rs = reshape(y(1,f1_subss(i),:), [1 nTot]);
+    ub = max([yT1_rs; y1_rs; xref(1,:)], [], 'all');
+    lb = min([yT1_rs; y1_rs; xref(1,:)], [], 'all');
+    range = ub - lb;
+    
+    subplot(2,1,i);
+    plot(t, yT1_rs, t, y1_rs, t, xref(1,:), '--' );
     grid on
-    plot(t, reshape(yT(1,i,:), [1 nTot]), ...
-         t, reshape(y(1,i,:), [1 nTot]), '--', ...
-         t, xref(1,:) );
-    %ylim([-.5 .5]);
-    legend({sprintf('$\\tilde y_{%i}$', i), ...
-            sprintf('$y_{%i}$', i), ...
-            sprintf('$y_{%i, ref}$', i)} , ...
-            'Interpreter', 'latex', 'Location', 'NorthWest');
-    %linkaxes(ax,'x');
+    set(gca, 'TickLabelInterpreter', 'latex', 'FontSize', 11); 
+    ylabel(sprintf('$\\mathcal P_%i$', f1_subss(i)), 'Interpreter', 'latex');
+    if i > 1
+        xlabel('Time [s]', 'Interpreter', 'latex'); 
+    end
+    ylim([lb - 0.5*range, ub + 0.5*range]);
+    legend({sprintf('$\\tilde y_{%i}$', f1_subss(i)), ...
+            sprintf('$y_{%i}$', f1_subss(i)), ...
+            sprintf('$y_{%i, ref}$', f1_subss(i))} , ...
+            'Interpreter', 'latex', 'Location', 'SouthWest', 'FontSize', 9);
+%     linkaxes(ax,'x');
 end
 
+% print('-f1-', ['fig' filesep 'trajectories.eps'], '-depsc2');
 
-% %% decoupled error
-% figure(2)
-% for i=1:N
-%     subplot(3,2,i);
-%     plot(t, reshape(yT(1,i,:) - xd(1,i,:), [1 nTot]));
-% end
-
-%% residuals
-
-figure(3)
+%% alarms
+track_bound = zeros(N, 1);
+% compute alarm signals
 for i=1:N
-    ebi = max(abs( squeeze(yT(1,i,t > 5)) - xref(1, t > 5)' ));
-    rbi = max(dcres(i,t > tA), [], 2);
-    subplot(3,2,i);
-    plot(t, dcres(i,:).', [t(1), t(end)], repmat(1.1*ebi, [1 2]), '--');
-    ylabel(sprintf('$\\|r_{%i}\\| $', i), ...
+    track_bound(i) = 1.1*max(abs( squeeze(yT(1,i,t > 2 & t < tA)) - xref(1, t > 2 & t < tA)' ));
+end
+alarms = dcres > repmat(track_bound, [1 nTot]);
+kTrans = find(t == 2);
+alarms(:,1:kTrans) = zeros(N, kTrans);
+dist_alarm = all(alarms(subss(nA).Ni, :), 1);
+kD = find(dist_alarm, 1);
+tD = t(kD);
+
+figure(2)
+set(2, 'defaultTextInterpreter', 'latex');
+set(2, 'Unit', 'inches', 'Position', [0 0 80 5]);
+for i=1:N
+    subplot(2,3,i);
+    plot(t, all(alarms(subss(i).Ni, :), 1), 'LineWidth', 1.5, 'Color', 'red');
+    grid on
+    ylim([-0.1 1.1]);
+    set(gca, 'TickLabelInterpreter', 'latex', 'FontSize', 11); 
+    ylabel(sprintf('$\\mathcal P_%i$', i), ...
             'Interpreter', 'latex', 'FontSize', 12);
-    ylim([0, rbi*1.2]);
-end
-% 
-% %% attacker
-% figure(4)
-% plot(t, xA)
-% 
-
-%% inputs
-figure(5)
-utildeol = reshape([utildec{nA,:}],[2, nTot-1]);
-uol = reshape([ucell{nA,:}],[2, nTot-1]);
-
-for i=1:N
-    subplot(3,2,i);
-    plot(t, reshape(u(:,i,:), [mI nTot]), ...
-         t, reshape(utilde(:,i,:), [mI nTot]), '--');
-    if i == nA
-        hold on
-        plot(t(1:end-1), utildeol.', '--', t(1:end-1), uol.')
-        hold off
+    if i > 3
+        xlabel('Time [s]', 'Interpreter', 'latex'); 
     end
 end
+%% residuals 
+
+figure(3)
+set(3, 'defaultTextInterpreter', 'latex');
+set(3, 'Unit', 'inches', 'Position', [0 0 80 5]);
+for i=1:N
+    rbi = max(dcres(i,t > tA), [], 2);
+    subplot(2,3,i);
+    plot(t, dcres(i,:).', [t(1), t(end)], repmat(track_bound(i), [1 2]), '--');
+    ylabel(sprintf('$\\|r_{%i}\\| $', i), ...
+            'Interpreter', 'latex', 'FontSize', 12);
+    ylim([0 rbi*1.2]);
+    set(gca, 'TickLabelInterpreter', 'latex', 'FontSize', 11); 
+    if i > 3
+        xlabel('Time [s]', 'Interpreter', 'latex'); 
+    end
+end
+
+%% inputs
+% figure(4)
+% 
+% for i=1:N
+%     subplot(3,2,i);
+%     plot(t, reshape(u(:,i,:), [mI nTot]), ...
+%          t, reshape(utilde(:,i,:), [mI nTot]), '--');
+%     if i == nA
+%         hold on
+%         plot(t(1:end-1), [utildej{i,:}].', '--', t(1:end-1), [uj{i,:}].')
+%         hold off
+%     end
+%     set(gca, 'TickLabelInterpreter', 'latex', 'FontSize', 12); 
+%     ylabel(sprintf('$\\mathcal P_%i$', i), 'Interpreter', 'latex');
+% end
