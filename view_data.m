@@ -15,7 +15,7 @@ for i=1:length(f1_subss)
     plot(t, yT1_rs, t, y1_rs, t, xref(1,:), '--' );
     grid on
     set(gca, 'TickLabelInterpreter', 'latex', 'FontSize', 11); 
-    ylabel(sprintf('$\\mathcal S_%i$', f1_subss(i)), 'Interpreter', 'latex');
+    ylabel(sprintf('$\\mathcal P_%i$', f1_subss(i)), 'Interpreter', 'latex');
     if i > 1
         xlabel('Time [s]', 'Interpreter', 'latex'); 
     end
@@ -57,7 +57,7 @@ set(2, 'Unit', 'inches', 'Position', [0 0 6 1.9]);
     ylim(yinterval + [-1, 1]*0.1);
     set(gca, 'Ytick', yticks);
     set(gca, 'Yticklabel', yticks);
-    ylabel(sprintf('$\\mathcal S_%i$', nA), ...
+    ylabel(sprintf('$\\mathcal P_%i$', nA), ...
             'Interpreter', 'latex', 'FontSize', 12);
     if i > 3
         xlabel('Time [s]', 'Interpreter', 'latex'); 
@@ -74,7 +74,8 @@ for i=1:N
     rbi = max(dcres(i,t > tA), [], 2);
     subplot(2,3,i);
     plot(t, dcres(i,:).', [t(1), t(end)], repmat(track_bound(i), [1 2]), '--');
-    ylabel(sprintf('$\\|r_{%i}\\| $', i), ...
+    grid on
+    ylabel(sprintf('$\\|\\delta_{%i}\\| $', i), ...
             'Interpreter', 'latex', 'FontSize', 12);
     ylim([0 rbi*1.2]);
     set(gca, 'TickLabelInterpreter', 'latex', 'FontSize', 11); 
