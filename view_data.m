@@ -1,3 +1,5 @@
+PRINT_FLAG = false;
+
 %% output
 figure(1)
 set(1, 'defaultTextInterpreter', 'latex');
@@ -27,8 +29,9 @@ for i=1:length(f1_subss)
 %     linkaxes(ax,'x');
 end
 
-print('-f1', ['fig' filesep 'trajectories.eps'], '-depsc2');
-
+if PRINT_FLAG
+    print('-f1', ['fig' filesep 'trajectories.eps'], '-depsc2');
+end
 %% alarms
 track_bound = zeros(N, 1);
 % compute alarm signals
@@ -63,8 +66,9 @@ set(2, 'Unit', 'inches', 'Position', [0 0 6 1.9]);
         xlabel('Time [s]', 'Interpreter', 'latex'); 
     end
 % end
-
-print('-f2', ['fig' filesep 'alarms.eps'], '-depsc2');
+if PRINT_FLAG
+    print('-f2', ['fig' filesep 'alarms.eps'], '-depsc2');
+end
 %% residuals 
 
 figure(3)
@@ -84,8 +88,9 @@ for i=1:N
     end
 end
 
-print('-f3', ['fig' filesep 'residuals.eps'], '-depsc2');
-
+if PRINT_FLAG
+    print('-f3', ['fig' filesep 'residuals.eps'], '-depsc2');
+end
 %% inputs
 % figure(4)
 % 
@@ -100,4 +105,13 @@ print('-f3', ['fig' filesep 'residuals.eps'], '-depsc2');
 %     end
 %     set(gca, 'TickLabelInterpreter', 'latex', 'FontSize', 12); 
 %     ylabel(sprintf('$\\mathcal P_%i$', i), 'Interpreter', 'latex');
+% end
+
+
+% %% other things
+% figure
+% for i=1:N
+%     subplot(3,2,i);
+%     plot(t, reshape(yT(1,i,:) - xd(1,i,:), [1 nTot]));
+%     ylim([-5e-3 5e-3])
 % end

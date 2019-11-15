@@ -178,7 +178,8 @@ for i = N:-1:1 % for local units
     LU(i).UIO.assignFPoles(obsvPoles);
     LU(i).UIO.tSpan = Tsamp;
     
-    Li = place(subss(i).A.', subss(i).C.', obsvPoles).';
+%     Li = place(subss(i).A.', subss(i).C.', obsvPoles).';
+    Li = LU(i).UIO.K1 + LU(i).UIO.H*subss(i).A;
     LU(i).LUE = CoupledLuenberger(subss(i).A, subss(i).B, subss(i).C, subss(i).Aij, Li, Tsamp);
 end
 
